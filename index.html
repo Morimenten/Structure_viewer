@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<!--
+  NPA Structure Viewer v1.3
+  Copyright (c) 2026 Morimenten
+  Licensed under Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
+  https://creativecommons.org/licenses/by-nc/4.0/
+  Source: https://github.com/Morimenten/npa-viewer
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NPA Structure Viewer</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+<header>
+  <h1>NPA Structure Viewer</h1>
+  <p>Gaussian の .log(NPA 電荷で色分け)または .com / .gjf(元素の色で構造だけ)を表示して、向きを決めて PNG・SVG に保存します。ファイルはこのブラウザの中だけで読み込み、外部には送信しません。</p>
+</header>
+<main>
+  <div>
+    <div id="stage">
+      <div id="drop"><b>ここに .log / .com / .gjf をドロップ</b>または
+        <label class="filebtn">ファイルを選ぶ<input type="file" id="file" accept=".log,.com,.gjf,.out,.txt"></label>
+      </div>
+      <div id="err"></div>
+      <div id="view"></div>
+      <div id="info"></div>
+    </div>
+    <p class="hint">ドラッグ:回転 / Shift+ドラッグ・右ドラッグ:画面内で回転 / 矢印キー:5° ずつ / 原子をクリック:ラベルや距離の切り替え(右の「クリックの動作」で選ぶ)</p>
+  </div>
+  <aside>
+    <section>
+      <h2>保存</h2>
+      <div class="rowb first">
+        <button class="main" id="bpng" disabled>PNG を保存</button>
+        <button class="main" id="bsvg" disabled>SVG を保存</button>
+        <label class="filebtn">別のファイルを開く<input type="file" id="file2" accept=".log,.com,.gjf,.out,.txt"></label>
+      </div>
+      <label class="ck gap"><input type="checkbox" id="transparent"> 背景を透明にする</label>
+      <div class="sl"><span>PNG の解像度</span><select id="pngscale"><option value="2">2 倍</option><option value="4" selected>4 倍</option><option value="6">6 倍</option></select><span></span></div>
+    </section>
+    <section>
+      <h2>表示</h2>
+      <label class="ck"><input type="radio" name="cm" id="cmq" value="q"> 電荷の色(NPA)</label>
+      <label class="ck"><input type="radio" name="cm" id="cme" value="e"> 元素の色</label>
+      <label class="ck"><input type="checkbox" id="showh"> H を表示</label>
+      <div class="sl wide"><span>結合の重なり</span><select id="bondz" aria-label="結合の重なり">
+        <option value="depth" selected>前後を表示(手前の結合を原子の上に重ねる)</option>
+        <option value="trim">原子の縁で止める(丸に線を重ねない)</option>
+        <option value="back">すべて原子の後ろに描く</option></select></div>
+      <label class="ck"><input type="checkbox" id="shownum" checked> 数値を表示(電荷ラベル・距離)</label>
+      <label class="ck"><input type="checkbox" id="showmd" checked> 金属–配位原子の距離を書く</label>
+      <label class="ck"><input type="checkbox" id="showleg" checked> カラーバー / 元素の凡例を付ける</label>
+      <label class="ck"><input type="checkbox" id="shownote" checked> 注記を付ける</label>
+      <input type="text" id="note" placeholder="注記(自動)" aria-label="注記">
+      <div class="rowb"><button id="noteauto">注記を自動に戻す</button></div>
+    </section>
+    <section>
+      <h2>クリックの動作</h2>
+      <label class="ck"><input type="radio" name="mode" value="label" checked> ラベルの表示 / 非表示(原子を 1 つクリック)</label>
+      <label class="ck"><input type="radio" name="mode" value="dist"> 距離の追加 / 削除(原子を 2 つ順にクリック)</label>
+      <div class="rowb">
+        <button id="lab_all">重原子すべてにラベル</button>
+        <button id="lab_metal">金属まわりだけ</button>
+        <button id="lab_none">ラベルを消す</button>
+        <button id="link_none">追加した距離を消す</button>
+      </div>
+    </section>
+    <section>
+      <h2>調整</h2>
+      <div class="sl"><span>金属との接触</span><input type="range" id="mcut" min="1.00" max="1.50" step="0.01" value="1.15"><output id="mcut_o">1.15</output></div>
+      <div class="sl"><span>電荷の色の範囲</span><select id="qrange"><option value="0.5">±0.5 e</option><option value="1" selected>±1.0 e</option><option value="1.5">±1.5 e</option><option value="2">±2.0 e</option></select><span></span></div>
+      <div class="sl"><span>文字の大きさ</span><input type="range" id="fs" min="8" max="20" step="1" value="12"><output id="fs_o">12</output></div>
+      <div class="sl"><span>原子の大きさ</span><input type="range" id="asz" min="0.6" max="1.6" step="0.05" value="1"><output id="asz_o">1.00</output></div>
+      <div class="rowb"><button id="reset">向きを最初に戻す</button></div>
+      <p class="hint">金属との接触:距離 &lt; (共有結合半径の和) × この値 のとき、破線で結びます。</p>
+    </section>
+    <section id="colsec">
+      <h2>元素の色</h2>
+      <div class="sl"><span>配色</span><select id="preset"><option value="jmol">標準(Jmol)</option><option value="pastel">淡色</option><option value="gray">グレー</option></select><span></span></div>
+      <div id="swatches"></div>
+      <div class="rowb"><button id="colreset">変更した色を元に戻す</button></div>
+      <p class="hint">色をクリックすると、元素ごとに変えられます(このブラウザに保存されます)。</p>
+    </section>
+  </aside>
+</main>
+<footer>
+  NPA Structure Viewer v1.3 · © 2026 Morimenten ·
+  <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="license noopener">CC BY-NC 4.0</a>(表示・非営利)·
+  <a href="https://github.com/Morimenten/npa-viewer" target="_blank" rel="noopener">GitHub</a><br>
+  Gaussian, Inc. および NBO の開発元とは関係のない、非公式のツールです。
+</footer>
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>

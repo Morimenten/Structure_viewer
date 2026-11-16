@@ -1,0 +1,23 @@
+{
+  "name": "npa-viewer",
+  "version": "1.3.0",
+  "description": "Browser-only viewer that draws molecular structures colored by NPA charges from Gaussian .log files",
+  "private": true,
+  "type": "module",
+  "license": "CC-BY-NC-4.0",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test",
+    "build": "tsc --noEmit && vite build && node tools/build-single.mjs",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}
