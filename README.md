@@ -3,7 +3,7 @@
 Gaussian の計算結果から、NPA 電荷で色分けした構造図をブラウザだけで作るツールです。
 `.log` をドラッグ&ドロップし、マウスで向きを決めて、PNG または SVG で保存します。
 
-**使う → https://morimenten.github.io/npa-viewer/**
+**使う → https://morimenten.github.io/Structure_viewer/**
 
 > A browser-only tool that draws molecular structures colored by NPA (natural population analysis) charges from Gaussian `.log` files. Drop a file, rotate it with the mouse, and export a PNG or SVG. Files are read locally in your browser and are never uploaded. The interface is in Japanese.
 
@@ -70,7 +70,7 @@ Gaussian の計算結果から、NPA 電荷で色分けした構造図をブラ�
 
 ## 自分の PC で使う(オフライン)
 
-[npa-viewer.html](https://morimenten.github.io/npa-viewer/npa-viewer.html) を保存して(リンクを右クリック →「リンク先を別名で保存」)、ブラウザで開くだけで動きます。CSS と JavaScript を 1 つのファイルにまとめた版で、インターネット接続は不要です。
+[npa-viewer.html](https://morimenten.github.io/Structure_viewer/npa-viewer.html) を保存して(リンクを右クリック →「リンク先を別名で保存」)、ブラウザで開くだけで動きます。CSS と JavaScript を 1 つのファイルにまとめた版で、インターネット接続は不要です。
 
 ## 開発
 
@@ -148,7 +148,7 @@ Copyright © 2026 Morimenten
 論文や発表でこのツールに触れる場合は、次のように書いてください。
 
 ```
-NPA Structure Viewer v1.3, Morimenten, https://github.com/Morimenten/npa-viewer
+NPA Structure Viewer v1.3, Morimenten, https://github.com/Morimenten/Structure_viewer
 ```
 
 ## 使用しているデータ
@@ -164,4 +164,4 @@ NPA Structure Viewer v1.3, Morimenten, https://github.com/Morimenten/npa-viewer
 
 ## 不具合の報告・要望
 
-[Issues](https://github.com/Morimenten/npa-viewer/issues) にお願いします。未発表の計算データは添付しないでください。
+[Issues](https://github.com/Morimenten/Structure_viewer/issues) にお願いします。未発表の計算データは添付しないでください。
