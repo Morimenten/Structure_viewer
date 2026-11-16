@@ -1,13 +1,15 @@
 // 画面の操作をまとめる入口。
-// ファイルを読む(parse.ts)→ 構造を計算する(geometry.ts)→ 図を作る(render.ts)→ 保存する(export.ts)
+// ファイルを読む(parse.ts)→ 状態を作る(scene.ts)→ 構造を計算する(geometry.ts)→ 図を作る(render.ts)→ 保存する(export.ts)
 
 import { ZOF } from './elements.ts';
 import { elementColor } from './colors.ts';
 import { parseAny } from './parse.ts';
-import { topology, hillFormula, frameOf, autoOrient, rotated, copyMat } from './geometry.ts';
-import { buildSVG, autoNote, formatCharge } from './render.ts';
+import { topology, rotated, copyMat } from './geometry.ts';
+import { buildSVG, autoNote } from './render.ts';
 import { download, svgBlob, svgToPng } from './export.ts';
-import type { BondOverlap, CustomColors, Figure, Hit, Mat3, Molecule, Options, Preset, Scene, TextWidth, Topology } from './types.ts';
+import { createScene, withName, heavyAtoms, metalsAndLigands, toggleLabel, pickForDistance, describe, exportStem } from './scene.ts';
+import type { Current, LoadedMolecule } from './scene.ts';
+import type { BondOverlap, CustomColors, Figure, Hit, Options, Preset, TextWidth } from './types.ts';
 
 const COLOR_STORAGE_KEY = 'npaviewer.colors';
 const ARROW_STEP = 12.5;          // 矢印キー 1 回分のドラッグ量(px)= 5°
@@ -29,20 +31,6 @@ const view = el('view');
 // =============================================================================
 // 状態
 // =============================================================================
-/** 読み込んだファイル(名前つきの構造) */
-interface LoadedMolecule extends Molecule {
-  /** ファイル名 */
-  name: string;
-  /** 拡張子を除いたファイル名(保存するときの名前に使う) */
-  stem: string;
-}
-/** いま表示している構造と、その向き・ラベル・距離 */
-interface Current extends Scene {
-  mol: LoadedMolecule;
-  /** 最初の向き(「向きを最初に戻す」用) */
-  R0: Mat3;
-}
-
 let current: Current | null = null;
 let hits: Hit[] = [];              // クリックの当たり判定(render のたびに更新)
 const custom: CustomColors = loadCustomColors();
@@ -112,33 +100,14 @@ function showError(msg: string): void {
   e.style.display = msg ? 'block' : 'none';
 }
 
-const heavyAtoms = (mol: Molecule): number[] => mol.atoms.flatMap((a, i) => a.e !== 'H' ? [i] : []);
-const metalsAndLigands = (topo: Topology): number[] => [...topo.centers, ...topo.contacts.map(b => b[1])];
-
-/** 最初に付けるラベル:金属があれば金属と配位原子、なければ重原子(15 個以下のとき) */
-function defaultLabels(mol: Molecule, topo: Topology): Set<number> {
-  if (topo.centers.length) return new Set(metalsAndLigands(topo));
-  const heavy = heavyAtoms(mol);
-  return new Set(heavy.length <= 15 ? heavy : []);
-}
-
-function describe(mol: LoadedMolecule): string {
-  const sum = mol.atoms.reduce((t, a) => t + (a.q ?? 0), 0);
-  const charge = mol.hasQ ? `、NPA 電荷あり(合計 ${formatCharge(Math.abs(sum) < 0.005 ? 0 : sum)})`
-    : mol.kind === 'log' ? '、NPA 電荷なし(元素の色で表示)' : '、構造のみ(元素の色で表示)';
-  return `${mol.name} — ${hillFormula(mol.atoms)}、${mol.atoms.length} 原子` + (mol.method ? `、${mol.method}` : '') + charge;
-}
+const messageOf = (e: unknown): string => e instanceof Error ? e.message : String(e);
 
 function loadText(name: string, text: string): boolean {
   let mol: LoadedMolecule;
-  try { mol = {...parseAny(name, text), name, stem: name.replace(/\.[^.]+$/, '')}; }
-  catch (e) { showError(`${name} を読めませんでした。\n${e instanceof Error ? e.message : String(e)}`); return false; }
+  try { mol = withName(parseAny(name, text), name); }
+  catch (e) { showError(`${name} を読めませんでした。\n${messageOf(e)}`); return false; }
   showError(mol.warn);
-
-  const {origin, lim} = frameOf(mol.atoms);
-  const R = autoOrient(mol.atoms, origin);
-  const topo = topology(mol.atoms, readSettings().mcut);
-  current = {mol, topo, origin, lim, R, R0: copyMat(R), labels: defaultLabels(mol, topo), links: [], pick: null, custom};
+  current = createScene(mol, readSettings().mcut, custom);
 
   input('note').value = '';
   input('cmq').disabled = !mol.hasQ;
@@ -154,7 +123,7 @@ function loadText(name: string, text: string): boolean {
 }
 
 function loadFile(file: File | null | undefined): void {
-  if (file) file.text().then(t => loadText(file.name, t), e => showError('ファイルを読めませんでした: ' + e));
+  if (file) file.text().then(t => loadText(file.name, t), e => showError('ファイルを読めませんでした: ' + messageOf(e)));
 }
 
 function initFileInput(): void {
@@ -189,16 +158,8 @@ function atomAt(clientX: number, clientY: number): number | null {
 function clickAtom(i: number): void {
   const c = current;
   if (!c) return;
-  if (readSettings().clickMode === 'label') {
-    if (c.labels.has(i)) c.labels.delete(i); else c.labels.add(i);
-  } else if (c.pick === null) c.pick = i;                        // 距離:1 個目
-  else if (c.pick === i) c.pick = null;
-  else {                                                         // 距離:2 個目 → 追加(すでにあれば削除)
-    const a = Math.min(c.pick, i), b = Math.max(c.pick, i);
-    const k = c.links.findIndex(l => l[0] === a && l[1] === b);
-    if (k >= 0) c.links.splice(k, 1); else c.links.push([a, b]);
-    c.pick = null;
-  }
+  if (readSettings().clickMode === 'label') toggleLabel(c, i);
+  else pickForDistance(c, i);
   render();
 }
 
@@ -306,7 +267,7 @@ function initColors(): void {
 // 保存
 // =============================================================================
 function initExport(): void {
-  const stem = (c: Current) => c.mol.stem + (readSettings().colorMode === 'q' && c.mol.hasQ ? '_NPA' : '_structure');
+  const stem = (c: Current) => exportStem(c.mol, readSettings().colorMode);
   el('bsvg').onclick = () => {
     const figure = exportFigure();
     if (current && figure) download(stem(current) + '.svg', svgBlob(figure.svg));
@@ -315,7 +276,7 @@ function initExport(): void {
     const figure = exportFigure(), c = current;
     if (!c || !figure) return;
     svgToPng(figure.svg, figure.W, figure.H, readSettings().pngScale)
-      .then(blob => download(stem(c) + '.png', blob), e => showError(e instanceof Error ? e.message : String(e)));
+      .then(blob => download(stem(c) + '.png', blob), e => showError(messageOf(e)));
   };
 }
 
